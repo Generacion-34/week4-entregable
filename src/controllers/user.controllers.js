@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { sendEmail } = require('../utils/sendEmail');
 const bcrypt = require("bcrypt");
 const EmailCode = require('../models/EmailCode');
+const jwt = require("jsonwebtoken")
 
 const getAll = catchError(async (req, res) => {
   const results = await User.findAll();
@@ -84,11 +85,32 @@ const veryCode = catchError(async (req, res) => {
 
 })
 
+const login = catchError(async (req, res) => {
+  const { email, password } = req.body
+  //valide mail
+  const user = await User.findOne({ where: { email } })
+  if (!user) return res.sendStatus(401)
+  //validar password
+  const isValid = await bcrypt.compare(password, user.password)
+  if (!isValid) return res.sendStatus(401)
+  //userVerified
+  if (!user.isVerified) return res.sendStatus(401)
+  //token
+  const token = jwt.sign(
+    { user },
+    process.env.TOKEN_SECRET,
+    { expiresIn: "1d" }
+  )
+  //return
+  return res.json({ user, token })
+})
+
 module.exports = {
   getAll,
   create,
   getOne,
   remove,
   update,
-  veryCode
+  veryCode,
+  login
 }
