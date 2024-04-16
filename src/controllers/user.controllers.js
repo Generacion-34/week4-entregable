@@ -1,7 +1,8 @@
 const catchError = require('../utils/catchError');
 const User = require('../models/User');
 const { sendEmail } = require('../utils/sendEmail');
-const bcrypt = require("bcrypt")
+const bcrypt = require("bcrypt");
+const EmailCode = require('../models/EmailCode');
 
 const getAll = catchError(async (req, res) => {
   const results = await User.findAll();
@@ -33,7 +34,12 @@ const create = catchError(async (req, res) => {
   //encriptar password
   const hashedPassword = await bcrypt.hash(password, 10)
   //guarda el registro creado
+
   const result = await User.create({ ...req.body, password: hashedPassword });
+
+  //guardar codigo
+  await EmailCode.create({ code, userId: result.id })
+
   //retorno
   return res.status(201).json(result);
 });
@@ -62,10 +68,27 @@ const update = catchError(async (req, res) => {
   return res.json(result[1][0]);
 });
 
+const veryCode = catchError(async (req, res) => {
+  const { code } = req.params
+
+  const userCode = await EmailCode.findOne({ where: { code } })
+  if (!userCode) return res.status(401).json('User not found')
+
+  const user = await User.findByPk(userCode.userId)
+
+  await user.update({ isVerified: true })
+
+  await userCode.destroy()
+
+  return res.json(user)
+
+})
+
 module.exports = {
   getAll,
   create,
   getOne,
   remove,
-  update
+  update,
+  veryCode
 }
